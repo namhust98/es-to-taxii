@@ -1,0 +1,2 @@
+cabby~=0.1.23
+elasticsearch~=7.14.1

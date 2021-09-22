@@ -1,10 +1,11 @@
 import cabby
 
-from consts import *
+import datetime
+from dateutil import tz
 
 from stix.core import STIXPackage, STIXHeader, Campaigns
 from stix.indicator import Indicator
-from stix.common.vocabs import IndicatorType_1_1, VocabString
+from stix.common.vocabs import VocabString
 from stix.campaign import Campaign, Names
 
 from cybox.utils import Namespace
@@ -12,6 +13,8 @@ from cybox.core import Observable
 
 from mixbox.idgen import set_id_namespace
 from elasticsearch import Elasticsearch
+
+from consts import *
 
 namespace = Namespace("https://sec.vnpt.vn", STIX_NAMESPACE)
 set_id_namespace(namespace)
@@ -78,38 +81,6 @@ def send_to_taxii(data: bytes, indicator_type):
 #     es.close()
 
 
-def map_indicator_type(type: str):
-    """ Map 'custom indicator type' to 'stix indicator type' """
-    if type in ANONYMIZATION:
-        return IndicatorType_1_1.TERM_ANONYMIZATION
-    elif type in C2:
-        return IndicatorType_1_1.TERM_C2
-    elif type in COMPROMISED_PKI_CERTIFICATE:
-        return IndicatorType_1_1.TERM_COMPROMISED_PKI_CERTIFICATE
-    elif type in DOMAIN_WATCHLIST:
-        return IndicatorType_1_1.TERM_DOMAIN_WATCHLIST
-    elif type in EXFILTRATION:
-        return IndicatorType_1_1.TERM_EXFILTRATION
-    elif type in FILE_HASH_WATCHLIST:
-        return IndicatorType_1_1.TERM_FILE_HASH_WATCHLIST
-    elif type in HOST_CHARACTERISTICS:
-        return IndicatorType_1_1.TERM_HOST_CHARACTERISTICS
-    elif type in IMEI_WATCHLIST:
-        return IndicatorType_1_1.TERM_IMEI_WATCHLIST
-    elif type in IMSI_WATCHLIST:
-        return IndicatorType_1_1.TERM_IMSI_WATCHLIST
-    elif type in IP_WATCHLIST:
-        return IndicatorType_1_1.TERM_IP_WATCHLIST
-    elif type in LOGIN_NAME:
-        return IndicatorType_1_1.TERM_LOGIN_NAME
-    elif type in MALICIOUS_EMAIL:
-        return IndicatorType_1_1.TERM_MALICIOUS_EMAIL
-    elif type in MALWARE_ARTIFACTS:
-        return IndicatorType_1_1.TERM_MALWARE_ARTIFACTS
-    elif type in URL_WATCHLIST:
-        return IndicatorType_1_1.TERM_URL_WATCHLIST
-
-
 def map_collection(indicator_type):
     """ Map 'indicator type' to 'collection' """
     if indicator_type in MALICIOUS_IP_COLLECTION:
@@ -153,7 +124,7 @@ def main():
             indicator_id = attr['_id']
             source_data = attr['_source']
             indicator_type = query_es(TYPE_INDEX, source_data['type_id'])['hits']['hits'][0]['_source']['name']
-            indicator_type = map_indicator_type(indicator_type)
+            # indicator_type = map_indicator_type(indicator_type)
 
             project = query_es(PROJECT_INDEX, source_data['project_id'])['hits']['hits'][0]
             project_id = project['_id']
@@ -167,7 +138,7 @@ def main():
             observable.add_keyword(source_data['indicator'])
 
             indicator.id_ = indicator_id
-            indicator.add_indicator_type(indicator_type)
+            indicator.add_indicator_type(VocabString(indicator_type))
             indicator.title = source_data['title']
             indicator.description = source_data['description']
             indicator.add_observable(observable)
@@ -182,8 +153,14 @@ def main():
             stix_package.stix_header = stix_header
             stix_package.campaigns = list_campaign
 
+            # Add timestamp
+            tz_info = tz.gettz(TIMEZONE)
+            stix_package.timestamp = datetime.datetime.now().astimezone(tz=tz_info)
+
             # Send data to Taxii
             send_to_taxii(stix_package.to_xml(), indicator_type)
+
+            print(str(stix_package.timestamp) + ": Successfully added id: " + str(stix_package.id_) + " to Taxii Server")
 
             # Append id to existing_indicator file
             id_file = open('existing_indicator.txt', 'a')

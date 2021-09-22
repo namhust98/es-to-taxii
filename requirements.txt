@@ -4,3 +4,4 @@ requests~=2.26.0
 stix~=1.2.0.11
 mixbox~=1.0.5
 cybox~=2.1.0.21
+python-dateutil~=2.8.2

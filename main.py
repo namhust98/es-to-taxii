@@ -122,11 +122,10 @@ def main():
 
             # Parse data
             indicator_id = attr['_id']
-            source_data = attr['_source']
-            indicator_type = query_es(TYPE_INDEX, source_data['type_id'])['hits']['hits'][0]['_source']['name']
-            # indicator_type = map_indicator_type(indicator_type)
+            indicator_data = attr['_source']
+            indicator_type = query_es(TYPE_INDEX, indicator_data['type_id'])['hits']['hits'][0]['_source']['name']
 
-            project = query_es(PROJECT_INDEX, source_data['project_id'])['hits']['hits'][0]
+            project = query_es(PROJECT_INDEX, indicator_data['project_id'])['hits']['hits'][0]
             project_id = project['_id']
             project_name = project['_source']['name']
             project_name = Names(VocabString(project_name))
@@ -135,18 +134,20 @@ def main():
 
             # Data assignment
             stix_header.description = STIX_HEADER_DESCRIPTION
-            observable.add_keyword(source_data['indicator'])
+
+            observable.add_keyword(indicator_data['indicator'])
 
             indicator.id_ = indicator_id
             indicator.add_indicator_type(VocabString(indicator_type))
-            indicator.title = source_data['title']
-            indicator.description = source_data['description']
-            indicator.add_observable(observable)
+            indicator.title = indicator_data['title']
+            indicator.description = indicator_data['description']
             indicator.producer = project_author_name
+            indicator.add_observable(observable)
 
             campaign.id_ = project_id
             campaign.description = project_description
             campaign.names = project_name
+
             list_campaign.campaign = campaign
 
             stix_package.add_indicator(indicator)
@@ -160,6 +161,7 @@ def main():
             # Send data to Taxii
             send_to_taxii(stix_package.to_xml(), indicator_type)
 
+            # Print log
             print(str(stix_package.timestamp) + ": Successfully added id: " + str(stix_package.id_) + " to Taxii Server")
 
             # Append id to existing_indicator file

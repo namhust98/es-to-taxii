@@ -162,7 +162,8 @@ def main():
             send_to_taxii(stix_package.to_xml(), indicator_type)
 
             # Print log
-            print(str(stix_package.timestamp) + ": Successfully added id: " + str(stix_package.id_) + " to Taxii Server")
+            print("[" + str(stix_package.timestamp) + "] Successfully added \"" +
+                  str(stix_package.id_) + "\" to Taxii Server")
 
             # Append id to existing_indicator file
             id_file = open('existing_indicator.txt', 'a')

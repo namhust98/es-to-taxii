@@ -15,8 +15,8 @@ TAXII_PASS = 'admin'
 # ElasticSearch info
 ES_HOST = '192.168.186.128'
 ES_PORT = 9200
-ES_USR = 'admin'
-ES_PASS = 'admin'
+ES_USR = 'elastic'
+ES_PASS = 'elastic'
 
 # Index of data
 INDICATOR_INDEX = 'threat_intelligence_indicator'

@@ -31,14 +31,14 @@ def query_es(index: str, id):
     if id is None:
         data = es.search(index=index)
     else:
-        data = es.search(index=index, body={"query": {"match": {"_id": id}}})
+        data = es.search(index=index, body={"query": {"match": {"id": id}}})
 
     # Close ElasticSearch client and return data
     es.close()
     return data
 
 
-def send_to_taxii(data: bytes, indicator_type):
+def send_to_taxii(data: bytes, collection_name: str):
     """ Send data to Taxii Server """
 
     # Create Taxii client
@@ -57,7 +57,7 @@ def send_to_taxii(data: bytes, indicator_type):
     client.push(data,
                 'urn:stix.mitre.org:xml:1.1.1',
                 uri='/services/inbox',
-                collection_names=[map_collection(indicator_type)])
+                collection_names=[collection_name])
 
 
 # def add_data_to_es():
@@ -111,7 +111,8 @@ def main():
     existing_indicator.close()
 
     for attr in data['hits']['hits']:
-        if attr['_id'] not in existing_id:
+        indicator_data = attr['_source']
+        if indicator_data['id'] not in existing_id:
             # Init
             stix_package = STIXPackage()
             stix_header = STIXHeader()
@@ -121,20 +122,19 @@ def main():
             campaign = Campaign()
 
             # Parse data
-            indicator_id = attr['_id']
-            indicator_data = attr['_source']
+            indicator_id = indicator_data['id']
             indicator_type = query_es(TYPE_INDEX, indicator_data['type_id'])['hits']['hits'][0]['_source']['name']
 
-            project = query_es(PROJECT_INDEX, indicator_data['project_id'])['hits']['hits'][0]
-            project_id = project['_id']
-            project_name = project['_source']['name']
+            project = query_es(PROJECT_INDEX, indicator_data['project_id'])['hits']['hits'][0]['_source']
+            project_id = project['id']
+            project_name = project['name']
             project_name = Names(VocabString(project_name))
-            project_description = project['_source']['description']
-            project_author_name = project['_source']['author_name']
+            project_description = project['description']
+            project_author_name = project['author_name']
 
             # Data assignment
-            stix_header.description = STIX_HEADER_DESCRIPTION
-
+            collection_name = map_collection(indicator_type)
+            stix_header.description = collection_name
             observable.add_keyword(indicator_data['indicator'])
 
             indicator.id_ = indicator_id
@@ -158,8 +158,10 @@ def main():
             tz_info = tz.gettz(TIMEZONE)
             stix_package.timestamp = datetime.datetime.now().astimezone(tz=tz_info)
 
+            # print(stix_package.to_json())
+
             # Send data to Taxii
-            send_to_taxii(stix_package.to_xml(), indicator_type)
+            send_to_taxii(data=stix_package.to_xml(), collection_name=collection_name)
 
             # Print log
             print("[" + str(stix_package.timestamp) + "] Successfully added \"" +
@@ -167,7 +169,7 @@ def main():
 
             # Append id to existing_indicator file
             id_file = open('existing_indicator.txt', 'a')
-            id_file.write(attr['_id'] + '\n')
+            id_file.write(indicator_data['id'] + '\n')
             id_file.close()
 
 

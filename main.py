@@ -156,9 +156,13 @@ def main():
 
             # Add timestamp
             tz_info = tz.gettz(TIMEZONE)
-            stix_package.timestamp = datetime.datetime.now().astimezone(tz=tz_info)
+            timestamp = datetime.datetime.now()
+            stix_package.timestamp = timestamp.astimezone(tz=tz_info)
 
             # print(stix_package.to_json())
+            to_xml_file = open('data/' + '[' + str(timestamp.date()) + '] ' + indicator_id + '.xml', 'wb')
+            to_xml_file.write(stix_package.to_xml())
+            to_xml_file.close()
 
             # Send data to Taxii
             send_to_taxii(data=stix_package.to_xml(), collection_name=collection_name)
